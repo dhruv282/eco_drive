@@ -59,6 +59,9 @@ class _DriveScreenState extends State<DriveScreen> {
       _buildStartEndMarkers();
       totalDistanceMeters = widget.viewTrip!.totalDistanceMeters;
       avgSpeedMps = widget.viewTrip!.avgSpeedMps;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _fitMapToTrip();
+      });
     } else {
       _startSensors();
     }
@@ -105,6 +108,32 @@ class _DriveScreenState extends State<DriveScreen> {
         child: const Icon(Icons.flag, color: Colors.red, size: 36),
       ),
     ]);
+  }
+
+  LatLngBounds _tripBounds() {
+    final lats = samples.map((s) => s.lat);
+    final lons = samples.map((s) => s.lon);
+
+    return LatLngBounds(
+      LatLng(
+        lats.reduce((a, b) => a < b ? a : b),
+        lons.reduce((a, b) => a < b ? a : b),
+      ),
+      LatLng(
+        lats.reduce((a, b) => a > b ? a : b),
+        lons.reduce((a, b) => a > b ? a : b),
+      ),
+    );
+  }
+
+  void _fitMapToTrip() {
+    if (samples.length < 2) return;
+
+    final bounds = _tripBounds();
+
+    mapController.fitCamera(
+      CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(80)),
+    );
   }
 
   Future<void> _startSensors() async {
@@ -291,29 +320,31 @@ class _DriveScreenState extends State<DriveScreen> {
                       ),
                     ),
                   ),
-                  Positioned(
-                    bottom: 20,
-                    left: 20,
-                    child: IconButton.outlined(
-                      color:
-                          followUser
-                              ? (isDarkMode ? Colors.white : Colors.black)
-                              : Colors.blue,
-                      onPressed: () {
-                        if (currentPosition != null) {
-                          setState(() {
-                            followUser = true;
-                          });
-                          mapController.move(
-                            currentPosition!,
-                            mapController.camera.zoom,
-                          );
-                        }
-                      },
-                      icon: const Icon(Icons.my_location),
-                    ),
-                  ),
                 ],
+                Positioned(
+                  bottom: 20,
+                  left: 20,
+                  child: IconButton.outlined(
+                    color:
+                        followUser
+                            ? (isDarkMode ? Colors.white : Colors.black)
+                            : Colors.blue,
+                    onPressed: () {
+                      setState(() {
+                        followUser = true;
+                      });
+                      if (currentPosition != null) {
+                        mapController.move(
+                          currentPosition!,
+                          mapController.camera.zoom,
+                        );
+                      } else if (widget.viewTrip != null) {
+                        _fitMapToTrip();
+                      }
+                    },
+                    icon: const Icon(Icons.my_location),
+                  ),
+                ),
               ],
             ),
             Positioned(
