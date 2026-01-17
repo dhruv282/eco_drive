@@ -1,0 +1,314 @@
+import 'dart:async';
+import 'package:eco_drive/data/drive_sample.dart';
+import 'package:eco_drive/data/trip.dart';
+import 'package:eco_drive/utils/trip_storage.dart';
+import 'package:eco_drive/widgets/telemetry_card.dart';
+import 'package:flutter/material.dart';
+import 'package:sensors_plus/sensors_plus.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:flutter_map_location_marker/flutter_map_location_marker.dart';
+
+class DriveScreen extends StatefulWidget {
+  final Trip? viewTrip;
+  const DriveScreen({super.key, this.viewTrip});
+
+  @override
+  State<DriveScreen> createState() => _DriveScreenState();
+}
+
+class _DriveScreenState extends State<DriveScreen> {
+  late MapController mapController;
+
+  StreamSubscription<UserAccelerometerEvent>? accelSub;
+  StreamSubscription<Position>? gpsSub;
+
+  bool recording = false;
+  DateTime? tripStart;
+
+  double filteredAccel = 0.0;
+  double speed = 0.0;
+  double emissionRate = 0.0;
+
+  double totalDistanceMeters = 0.0;
+  double avgSpeedMps = 0;
+  double speedMps = 0;
+  double longitudinalAccel = 0;
+  double emissionScore = 0;
+  LatLng? currentPosition;
+
+  DateTime? lastAccelTs;
+
+  final List<DriveSample> samples = [];
+  final List<Polyline> polylines = [];
+
+  static const double accelFilterAlpha = 0.8;
+
+  bool followUser = true;
+  LatLng? lastPosition;
+
+  @override
+  void initState() {
+    super.initState();
+    mapController = MapController();
+    if (widget.viewTrip != null) {
+      samples.addAll(widget.viewTrip!.samples);
+      _rebuildPolylines();
+      totalDistanceMeters = widget.viewTrip!.totalDistanceMeters;
+      avgSpeedMps = widget.viewTrip!.avgSpeedMps;
+    } else {
+      _startSensors();
+    }
+  }
+
+  @override
+  void dispose() {
+    accelSub?.cancel();
+    gpsSub?.cancel();
+    super.dispose();
+  }
+
+  void _rebuildPolylines() {
+    for (int i = 0; i < samples.length - 1; i++) {
+      final s1 = samples[i];
+      final s2 = samples[i + 1];
+      polylines.add(
+        Polyline(
+          points: [LatLng(s1.lat, s1.lon), LatLng(s2.lat, s2.lon)],
+          strokeWidth: 5,
+          color: _emissionToColor(s1.emission),
+        ),
+      );
+    }
+  }
+
+  Future<void> _startSensors() async {
+    await Geolocator.requestPermission();
+
+    accelSub = userAccelerometerEventStream().listen(_onAccel);
+
+    gpsSub = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.bestForNavigation,
+      ),
+    ).listen(_onGps);
+  }
+
+  void _onAccel(UserAccelerometerEvent e) {
+    final now = DateTime.now();
+
+    // Assumption for Phase 1: phone X-axis ~= vehicle forward
+    final rawAccel = e.x;
+
+    // Low-pass filter
+    filteredAccel =
+        accelFilterAlpha * filteredAccel + (1 - accelFilterAlpha) * rawAccel;
+
+    // Integrate to estimate speed (short-term only)
+    if (lastAccelTs != null) {
+      final dt = now.difference(lastAccelTs!).inMilliseconds / 1000.0;
+      speed += filteredAccel * dt;
+      speed = speed.clamp(0, 200); // sanity clamp
+    }
+
+    lastAccelTs = now;
+
+    // Simple relative emissions proxy
+    emissionRate = filteredAccel.abs() + speed * 0.02;
+
+    longitudinalAccel = filteredAccel;
+    emissionScore = emissionRate;
+  }
+
+  void _onGps(Position pos) {
+    currentPosition = LatLng(pos.latitude, pos.longitude);
+
+    speedMps = pos.speed;
+
+    if (followUser) {
+      mapController.move(
+        currentPosition!,
+        mapController.camera.zoom,
+        id: 'gps-follow',
+      );
+    }
+
+    if (!recording) return;
+
+    if (lastPosition != null) {
+      totalDistanceMeters += const Distance().as(
+        LengthUnit.Meter,
+        lastPosition!,
+        currentPosition!,
+      );
+    }
+    final elapsedSeconds = DateTime.now().difference(tripStart!).inSeconds;
+    avgSpeedMps = elapsedSeconds > 0 ? totalDistanceMeters / elapsedSeconds : 0;
+
+    lastPosition = currentPosition;
+
+    final sample = DriveSample(
+      timestamp: DateTime.now(),
+      lat: pos.latitude,
+      lon: pos.longitude,
+      speed: speed,
+      accel: filteredAccel,
+      emission: emissionRate,
+    );
+
+    setState(() {
+      samples.add(sample);
+      _updatePolyline();
+    });
+  }
+
+  void _updatePolyline() {
+    if (samples.length < 2) return;
+
+    final s1 = samples[samples.length - 2];
+    final s2 = samples.last;
+
+    polylines.add(
+      Polyline(
+        points: [LatLng(s1.lat, s1.lon), LatLng(s2.lat, s2.lon)],
+        strokeWidth: 5,
+        color: _emissionToColor(s1.emission),
+      ),
+    );
+  }
+
+  Color _emissionToColor(double e) {
+    if (e < 0.5) return Colors.green;
+    if (e < 1.0) return Colors.yellow;
+    if (e < 2.0) return Colors.orange;
+    return Colors.red;
+  }
+
+  Future<void> _startTrip() async {
+    setState(() {
+      samples.clear();
+      polylines.clear();
+      tripStart = DateTime.now();
+      totalDistanceMeters = 0;
+      lastPosition = null;
+      recording = true;
+    });
+  }
+
+  Future<void> _stopTrip() async {
+    recording = false;
+
+    final trip = Trip(
+      id: tripStart!.millisecondsSinceEpoch.toString(),
+      start: tripStart!,
+      end: DateTime.now(),
+      samples: List.from(samples),
+      totalDistanceMeters: totalDistanceMeters,
+      avgSpeedMps: avgSpeedMps,
+    );
+
+    await TripStorage.saveTrip(trip);
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDarkMode =
+        MediaQuery.of(context).platformBrightness == Brightness.dark;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.viewTrip != null ? 'Trip Replay' : 'Driving'),
+      ),
+      floatingActionButton:
+          widget.viewTrip != null
+              ? null
+              : FloatingActionButton(
+                backgroundColor: recording ? Colors.red : Colors.green,
+                onPressed: recording ? _stopTrip : _startTrip,
+                child: Icon(recording ? Icons.stop : Icons.play_arrow),
+              ),
+      body: SafeArea(
+        child: Stack(
+          children: [
+            FlutterMap(
+              mapController: mapController,
+              options: MapOptions(
+                initialCenter:
+                    widget.viewTrip != null
+                        ? LatLng(samples.first.lat, samples.first.lon)
+                        : const LatLng(37.4219999, -122.0840575),
+                onPositionChanged: (position, hasGesture) {
+                  if (hasGesture) {
+                    setState(() {
+                      followUser = false;
+                    });
+                  }
+                },
+              ),
+              children: [
+                TileLayer(
+                  // urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  urlTemplate:
+                      'https://{s}.basemaps.cartocdn.com/${isDarkMode ? 'dark' : 'light'}_all/{z}/{x}/{y}{r}.png',
+                  subdomains: ['a', 'b', 'c', 'd'],
+                  userAgentPackageName: 'com.example.ecodrive',
+                ),
+                PolylineLayer(polylines: polylines),
+                if (widget.viewTrip == null) ...[
+                  CurrentLocationLayer(
+                    style: LocationMarkerStyle(showHeadingSector: false),
+                    positionStream: Geolocator.getPositionStream().map(
+                      (position) => LocationMarkerPosition(
+                        latitude: position.latitude,
+                        longitude: position.longitude,
+                        accuracy: position.accuracy,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 20,
+                    left: 20,
+                    child: IconButton.outlined(
+                      color:
+                          followUser
+                              ? (isDarkMode ? Colors.white : Colors.black)
+                              : Colors.blue,
+                      onPressed: () {
+                        if (currentPosition != null) {
+                          setState(() {
+                            followUser = true;
+                          });
+                          mapController.move(
+                            currentPosition!,
+                            mapController.camera.zoom,
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.my_location),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            Positioned(
+              left: 12,
+              right: 12,
+              top: 12,
+              child: TelemetryCard(
+                speedMps: speedMps,
+                accel: longitudinalAccel,
+                emission: emissionScore,
+                totalDistanceMeters: totalDistanceMeters,
+                avgSpeedMps: avgSpeedMps,
+                position: currentPosition,
+                recording: recording,
+                isViewTrip: widget.viewTrip != null,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
