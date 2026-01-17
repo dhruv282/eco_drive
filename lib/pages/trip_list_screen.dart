@@ -28,8 +28,9 @@ class _TripListScreenState extends State<TripListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Saved Trips')),
-      floatingActionButton: FloatingActionButton(
-        child: const Icon(Icons.play_arrow),
+      floatingActionButton: FloatingActionButton.extended(
+        icon: const Icon(Icons.play_arrow),
+        label: const Text('Start Trip'),
         onPressed: () async {
           await Navigator.push(
             context,
