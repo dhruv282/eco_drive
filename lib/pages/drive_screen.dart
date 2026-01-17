@@ -49,6 +49,8 @@ class _DriveScreenState extends State<DriveScreen> {
   double yawRad = 0.0;
   DateTime? lastGyroTs;
   DateTime? lastAccelTs;
+  double? lastGpsHeadingRad;
+  static const double yawAlpha = 0.98;
 
   final List<DriveSample> samples = [];
   final List<Polyline> polylines = [];
@@ -173,8 +175,6 @@ class _DriveScreenState extends State<DriveScreen> {
   }
 
   void _onGyro(GyroscopeEvent e) {
-    if (!recording) return;
-
     final now = DateTime.now();
 
     if (lastGyroTs != null) {
@@ -235,6 +235,16 @@ class _DriveScreenState extends State<DriveScreen> {
     currentPosition = LatLng(pos.latitude, pos.longitude);
 
     speedMps = pos.speed;
+
+    // Convert heading to radians
+    if (pos.heading >= 0) {
+      lastGpsHeadingRad = pos.heading * pi / 180.0;
+    }
+
+    // Apply complementary filter if we have GPS heading
+    if (lastGpsHeadingRad != null) {
+      yawRad = yawAlpha * yawRad + (1 - yawAlpha) * lastGpsHeadingRad!;
+    }
 
     if (followUser) {
       mapController.move(
