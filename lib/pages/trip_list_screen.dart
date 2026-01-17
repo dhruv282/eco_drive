@@ -29,7 +29,7 @@ class _TripListScreenState extends State<TripListScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Saved Trips')),
       floatingActionButton: FloatingActionButton.extended(
-        icon: const Icon(Icons.play_arrow),
+        icon: const Icon(Icons.eco),
         label: const Text('Start Trip'),
         onPressed: () async {
           await Navigator.push(
