@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:eco_drive/data/drive_sample.dart';
 import 'package:eco_drive/data/trip.dart';
 import 'package:eco_drive/utils/trip_storage.dart';
@@ -25,6 +26,7 @@ class _DriveScreenState extends State<DriveScreen> {
   StreamSubscription<UserAccelerometerEvent>? accelSub;
   StreamSubscription<Position>? gpsSub;
   StreamSubscription<AccelerometerEvent>? accelerometerSub;
+  StreamSubscription<GyroscopeEvent>? gyroSub;
 
   bool recording = false;
   DateTime? tripStart;
@@ -35,13 +37,17 @@ class _DriveScreenState extends State<DriveScreen> {
   double speed = 0.0;
   double emissionRate = 0.0;
 
+  DateTime? lastUiUpdate;
+  static const uiUpdateInterval = Duration(milliseconds: 200);
+
   double totalDistanceMeters = 0.0;
   double avgSpeedMps = 0;
   double speedMps = 0;
   double longitudinalAccel = 0;
   double emissionScore = 0;
   LatLng? currentPosition;
-
+  double yawRad = 0.0;
+  DateTime? lastGyroTs;
   DateTime? lastAccelTs;
 
   final List<DriveSample> samples = [];
@@ -76,6 +82,7 @@ class _DriveScreenState extends State<DriveScreen> {
     accelSub?.cancel();
     gpsSub?.cancel();
     accelerometerSub?.cancel();
+    gyroSub?.cancel();
     super.dispose();
   }
 
@@ -148,12 +155,36 @@ class _DriveScreenState extends State<DriveScreen> {
     accelerometerSub = accelerometerEventStream().listen((e) {
       gravity = Vector3(e.x, e.y, e.z).normalized();
     });
+    gyroSub = gyroscopeEventStream().listen(_onGyro);
 
     gpsSub = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.bestForNavigation,
       ),
     ).listen(_onGps);
+  }
+
+  void _throttledUiUpdate(DateTime now) {
+    if (lastUiUpdate == null ||
+        now.difference(lastUiUpdate!) > uiUpdateInterval) {
+      lastUiUpdate = now;
+      setState(() {});
+    }
+  }
+
+  void _onGyro(GyroscopeEvent e) {
+    if (!recording) return;
+
+    final now = DateTime.now();
+
+    if (lastGyroTs != null) {
+      final dt = now.difference(lastGyroTs!).inMilliseconds / 1000.0;
+
+      // Z-axis rotation ≈ yaw (phone flat assumption)
+      yawRad += e.z * dt;
+    }
+
+    lastGyroTs = now;
   }
 
   void _onAccel(UserAccelerometerEvent e) {
@@ -165,23 +196,23 @@ class _DriveScreenState extends State<DriveScreen> {
     // Build world frame from gravity
     final zWorld = -gravity; // up
     final xRef = Vector3(1, 0, 0);
-
-    // Avoid degenerate cross product
-    if (zWorld.cross(xRef).length < 0.1) return;
-
     final yWorld = zWorld.cross(xRef).normalized();
     final xWorld = yWorld.cross(zWorld).normalized();
 
     // Rotation matrix (phone → world)
     final R = Matrix3.columns(xWorld, yWorld, zWorld);
 
-    // Rotate acceleration
+    // Rotate acceleration into world frame
     final worldAccel = R * phoneAccel;
+
+    // rotate horizontal plane by gyro yaw
+    final forwardAccel =
+        worldAccel.x * cos(yawRad) + worldAccel.y * sin(yawRad);
 
     // Longitudinal acceleration (approximate)
     filteredAccel =
         accelFilterAlpha * filteredAccel +
-        (1 - accelFilterAlpha) * worldAccel.x;
+        (1 - accelFilterAlpha) * forwardAccel;
 
     // Integrate to estimate speed (short-term only)
     if (lastAccelTs != null) {
@@ -195,10 +226,9 @@ class _DriveScreenState extends State<DriveScreen> {
     // Simple relative emissions proxy
     emissionRate = filteredAccel.abs() + speed * 0.02;
 
-    setState(() {
-      longitudinalAccel = filteredAccel;
-      emissionScore = emissionRate;
-    });
+    longitudinalAccel = filteredAccel;
+    emissionScore = emissionRate;
+    _throttledUiUpdate(now);
   }
 
   void _onGps(Position pos) {
