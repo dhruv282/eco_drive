@@ -42,6 +42,7 @@ class _DriveScreenState extends State<DriveScreen> {
 
   final List<DriveSample> samples = [];
   final List<Polyline> polylines = [];
+  final List<Marker> markers = [];
 
   static const double accelFilterAlpha = 0.8;
 
@@ -55,6 +56,7 @@ class _DriveScreenState extends State<DriveScreen> {
     if (widget.viewTrip != null) {
       samples.addAll(widget.viewTrip!.samples);
       _rebuildPolylines();
+      _buildStartEndMarkers();
       totalDistanceMeters = widget.viewTrip!.totalDistanceMeters;
       avgSpeedMps = widget.viewTrip!.avgSpeedMps;
     } else {
@@ -81,6 +83,28 @@ class _DriveScreenState extends State<DriveScreen> {
         ),
       );
     }
+  }
+
+  void _buildStartEndMarkers() {
+    if (samples.isEmpty) return;
+
+    final start = samples.first;
+    final end = samples.last;
+
+    markers.addAll([
+      Marker(
+        point: LatLng(start.lat, start.lon),
+        width: 40,
+        height: 40,
+        child: const Icon(Icons.flag, color: Colors.green, size: 36),
+      ),
+      Marker(
+        point: LatLng(end.lat, end.lon),
+        width: 40,
+        height: 40,
+        child: const Icon(Icons.flag, color: Colors.red, size: 36),
+      ),
+    ]);
   }
 
   Future<void> _startSensors() async {
@@ -255,6 +279,7 @@ class _DriveScreenState extends State<DriveScreen> {
                   userAgentPackageName: 'com.example.ecodrive',
                 ),
                 PolylineLayer(polylines: polylines),
+                MarkerLayer(markers: markers),
                 if (widget.viewTrip == null) ...[
                   CurrentLocationLayer(
                     style: LocationMarkerStyle(showHeadingSector: false),
