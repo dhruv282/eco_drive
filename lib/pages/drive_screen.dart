@@ -170,8 +170,10 @@ class _DriveScreenState extends State<DriveScreen> {
     // Simple relative emissions proxy
     emissionRate = filteredAccel.abs() + speed * 0.02;
 
-    longitudinalAccel = filteredAccel;
-    emissionScore = emissionRate;
+    setState(() {
+      longitudinalAccel = filteredAccel;
+      emissionScore = emissionRate;
+    });
   }
 
   void _onGps(Position pos) {
