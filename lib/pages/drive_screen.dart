@@ -9,6 +9,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_map_location_marker/flutter_map_location_marker.dart';
+import 'package:vector_math/vector_math.dart' show Matrix3, Vector3;
 
 class DriveScreen extends StatefulWidget {
   final Trip? viewTrip;
@@ -23,9 +24,12 @@ class _DriveScreenState extends State<DriveScreen> {
 
   StreamSubscription<UserAccelerometerEvent>? accelSub;
   StreamSubscription<Position>? gpsSub;
+  StreamSubscription<AccelerometerEvent>? accelerometerSub;
 
   bool recording = false;
   DateTime? tripStart;
+
+  Vector3 gravity = Vector3(0, 0, -1);
 
   double filteredAccel = 0.0;
   double speed = 0.0;
@@ -71,6 +75,7 @@ class _DriveScreenState extends State<DriveScreen> {
   void dispose() {
     accelSub?.cancel();
     gpsSub?.cancel();
+    accelerometerSub?.cancel();
     super.dispose();
   }
 
@@ -140,6 +145,9 @@ class _DriveScreenState extends State<DriveScreen> {
     await Geolocator.requestPermission();
 
     accelSub = userAccelerometerEventStream().listen(_onAccel);
+    accelerometerSub = accelerometerEventStream().listen((e) {
+      gravity = Vector3(e.x, e.y, e.z).normalized();
+    });
 
     gpsSub = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
@@ -151,12 +159,29 @@ class _DriveScreenState extends State<DriveScreen> {
   void _onAccel(UserAccelerometerEvent e) {
     final now = DateTime.now();
 
-    // Assumption for Phase 1: phone X-axis ~= vehicle forward
-    final rawAccel = e.x;
+    // Linear acceleration in phone frame
+    final phoneAccel = Vector3(e.x, e.y, e.z);
 
-    // Low-pass filter
+    // Build world frame from gravity
+    final zWorld = -gravity; // up
+    final xRef = Vector3(1, 0, 0);
+
+    // Avoid degenerate cross product
+    if (zWorld.cross(xRef).length < 0.1) return;
+
+    final yWorld = zWorld.cross(xRef).normalized();
+    final xWorld = yWorld.cross(zWorld).normalized();
+
+    // Rotation matrix (phone → world)
+    final R = Matrix3.columns(xWorld, yWorld, zWorld);
+
+    // Rotate acceleration
+    final worldAccel = R * phoneAccel;
+
+    // Longitudinal acceleration (approximate)
     filteredAccel =
-        accelFilterAlpha * filteredAccel + (1 - accelFilterAlpha) * rawAccel;
+        accelFilterAlpha * filteredAccel +
+        (1 - accelFilterAlpha) * worldAccel.x;
 
     // Integrate to estimate speed (short-term only)
     if (lastAccelTs != null) {
