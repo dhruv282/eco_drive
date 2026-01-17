@@ -322,13 +322,23 @@ class _DriveScreenState extends State<DriveScreen> {
                   ),
                 ],
                 Positioned(
+                  bottom: 75,
+                  left: 20,
+                  child: FloatingActionButton(
+                    mini: true,
+                    heroTag: 'resetRotation',
+                    onPressed: () {
+                      mapController.rotate(0, id: 'reset-rotation');
+                    },
+                    child: const Icon(Icons.explore),
+                  ),
+                ),
+                Positioned(
                   bottom: 20,
                   left: 20,
-                  child: IconButton.outlined(
-                    color:
-                        followUser
-                            ? (isDarkMode ? Colors.white : Colors.black)
-                            : Colors.blue,
+                  child: FloatingActionButton(
+                    mini: true,
+                    heroTag: 'recenterLocation',
                     onPressed: () {
                       setState(() {
                         followUser = true;
@@ -342,7 +352,7 @@ class _DriveScreenState extends State<DriveScreen> {
                         _fitMapToTrip();
                       }
                     },
-                    icon: const Icon(Icons.my_location),
+                    child: const Icon(Icons.my_location),
                   ),
                 ),
               ],
