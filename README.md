@@ -22,6 +22,12 @@ The goal of the project is to explore how far you can go with **phone-only telem
 * 💾 **Local trip storage** (JSON files on device)
 * 🔁 **Trip replay mode**
 
+<p align="center">
+   <img src="https://github.com/user-attachments/assets/916952ab-8b1b-42b7-8732-432d0dfa6d1d" width="200">
+   <img src="https://github.com/user-attachments/assets/44889f55-4581-47aa-86c6-dcbfddaad678" width="200">
+   <img src="https://github.com/user-attachments/assets/bf301549-8149-4953-8ee2-1b0fe72cfb69" width="200">
+</p>
+
 ## 🧠 Sensor Fusion Overview
 
 EcoDrive combines multiple phone sensors to produce a more accurate, vehicle-aligned estimate of motion:
@@ -82,6 +88,6 @@ This project should be treated as an **educational / experimental tool**, not a 
 
 ## 📜 License
 
-Expense Tracker is open-source software released under the [MIT License](https://opensource.org/licenses/MIT). You are free to modify and distribute the application under the terms of this license. See the [`LICENSE`](./LICENSE) file for more information.
+EcoDrive is open-source software released under the [MIT License](https://opensource.org/licenses/MIT). You are free to modify and distribute the application under the terms of this license. See the [`LICENSE`](./LICENSE) file for more information.
 
 Please note that this README file is subject to change as the application evolves. Refer to the latest version of this file in the repository for the most up-to-date information.
