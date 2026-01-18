@@ -1,16 +1,87 @@
-# eco_drive
+# EcoDrive
 
-A new Flutter project.
+<p align="center">
+   <img src="./assets/icon/icon.svg" width="150"/>
+</p>
 
-## Getting Started
+EcoDrive is an experimental Flutter application that uses **on-device sensors and GPS** to analyze driving behavior and visualize estimated emissions and efficiency directly on a map.
 
-This project is a starting point for a Flutter application.
+The goal of the project is to explore how far you can go with **phone-only telemetry** (accelerometer, gyroscope, and GPS) to approximate vehicle dynamics such as acceleration, braking, and driving smoothness — without requiring access to the vehicle CAN bus.
 
-A few resources to get you started if this is your first Flutter project:
+## ✨ Features
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+* 🚗 **Trip recording** (start / stop drives)
+* 🗺️ **Map-based trip visualization** using OpenStreetMap (via `flutter_map`)
+* 📍 **GPS tracking** with polyline replay of trips
+* 📊 **Real-time telemetry**
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+  * Speed
+  * Longitudinal acceleration
+  * Estimated emission intensity
+* 🎨 **Color-coded route segments** based on emission intensity
+* 💾 **Local trip storage** (JSON files on device)
+* 🔁 **Trip replay mode**
+
+## 🧠 Sensor Fusion Overview
+
+EcoDrive combines multiple phone sensors to produce a more accurate, vehicle-aligned estimate of motion:
+
+| Sensor             | Purpose                                               |
+| ------------------ | ----------------------------------------------------- |
+| Accelerometer      | Determines gravity vector → phone tilt (pitch / roll) |
+| User Accelerometer | Linear acceleration (gravity removed)                 |
+| Gyroscope          | Tracks short-term rotation (yaw) during turns         |
+| GPS                | Provides absolute heading, speed, and position        |
+
+### Fusion pipeline
+
+```
+User Acceleration
+   ↓
+Rotate by gravity vector (tilt compensation)
+   ↓
+Rotate by gyroscope yaw (vehicle turns)
+   ↓
+Correct yaw drift using GPS heading
+   ↓
+Vehicle-aligned longitudinal acceleration
+```
+
+This layered approach reduces errors caused by:
+
+* Phone mounting angle
+* Vehicle turns
+* Gyroscope drift over long trips
+
+## 🗺️ Map & Visualization
+
+* Uses Carto basemap tiles (`basemaps.cartocdn.com`) for a clean, modern map style
+
+  * Light and dark themed basemaps are supported
+  * Built on top of OpenStreetMap data
+* Rendered via flutter_map (non-commercial usage)
+* Route segments are colored based on estimated emission intensity:
+
+  * 🟢 Low
+  * 🟡 Medium
+  * 🟠 High
+  * 🔴 Very High
+* Start and end points are highlighted in trip replay mode
+
+## ⚠️ Limitations & Disclaimer
+
+* This app does **not** read real vehicle fuel or emission data
+* Emission values are **heuristic estimates**, intended for visualization and experimentation only
+* Accuracy depends on:
+
+  * Phone mounting position
+  * Sensor quality
+  * GPS signal quality
+
+This project should be treated as an **educational / experimental tool**, not a scientific instrument.
+
+## 📜 License
+
+Expense Tracker is open-source software released under the [MIT License](https://opensource.org/licenses/MIT). You are free to modify and distribute the application under the terms of this license. See the [`LICENSE`](./LICENSE) file for more information.
+
+Please note that this README file is subject to change as the application evolves. Refer to the latest version of this file in the repository for the most up-to-date information.
