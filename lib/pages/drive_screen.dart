@@ -2,9 +2,10 @@ import 'dart:async';
 import 'dart:math';
 import 'package:eco_drive/data/drive_sample.dart';
 import 'package:eco_drive/data/trip.dart';
-import 'package:eco_drive/utils/trip_storage.dart';
+import 'package:eco_drive/providers/trips_provider.dart';
 import 'package:eco_drive/widgets/telemetry_card.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -320,7 +321,7 @@ class _DriveScreenState extends State<DriveScreen> {
     });
   }
 
-  Future<void> _stopTrip() async {
+  Future<void> _stopTrip(TripsProvider tripsProvider) async {
     recording = false;
 
     await WakelockPlus.disable();
@@ -334,24 +335,64 @@ class _DriveScreenState extends State<DriveScreen> {
       avgSpeedMps: avgSpeedMps,
     );
 
-    await TripStorage.saveTrip(trip);
+    await tripsProvider.saveTrip(trip);
     if (mounted) Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
+    final tripsProvider = Provider.of<TripsProvider>(context);
     final isDarkMode =
         MediaQuery.of(context).platformBrightness == Brightness.dark;
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.viewTrip != null ? 'Trip Replay' : 'Driving'),
+        actions: [
+          if (widget.viewTrip != null)
+            IconButton(
+              onPressed:
+                  () => showDialog(
+                    context: context,
+                    builder:
+                        (dialogContext) => AlertDialog(
+                          title: const Text('Delete Trip?'),
+                          content: const Text(
+                            'Are you sure you want to delete this trip?',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () async {
+                                await tripsProvider
+                                    .deleteTrip(widget.viewTrip!)
+                                    .then((_) {
+                                      if (dialogContext.mounted) {
+                                        Navigator.pop(dialogContext);
+                                      }
+                                      if (context.mounted) {
+                                        Navigator.pop(context);
+                                      }
+                                    });
+                              },
+                              child: const Text('Delete'),
+                            ),
+                          ],
+                        ),
+                  ),
+              icon: Icon(Icons.delete, color: Colors.redAccent),
+            ),
+        ],
       ),
       floatingActionButton:
           widget.viewTrip != null
               ? null
               : FloatingActionButton(
                 backgroundColor: recording ? Colors.red : Colors.green,
-                onPressed: recording ? _stopTrip : _startTrip,
+                onPressed:
+                    recording ? () => _stopTrip(tripsProvider) : _startTrip,
                 child: Icon(recording ? Icons.stop : Icons.play_arrow),
               ),
       body: SafeArea(

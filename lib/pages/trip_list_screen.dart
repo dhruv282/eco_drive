@@ -1,7 +1,8 @@
 import 'package:eco_drive/data/trip.dart';
 import 'package:eco_drive/pages/drive_screen.dart';
-import 'package:eco_drive/utils/trip_storage.dart';
+import 'package:eco_drive/providers/trips_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class TripListScreen extends StatefulWidget {
   const TripListScreen({super.key});
@@ -14,18 +15,8 @@ class _TripListScreenState extends State<TripListScreen> {
   List<Trip> trips = [];
 
   @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    trips = await TripStorage.loadTrips();
-    setState(() {});
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final tripsProvider = Provider.of<TripsProvider>(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Saved Trips')),
       floatingActionButton: FloatingActionButton.extended(
@@ -36,13 +27,12 @@ class _TripListScreenState extends State<TripListScreen> {
             context,
             MaterialPageRoute(builder: (_) => const DriveScreen()),
           );
-          _load();
         },
       ),
       body: ListView.builder(
-        itemCount: trips.length,
+        itemCount: tripsProvider.trips.length,
         itemBuilder: (c, i) {
-          final t = trips[i];
+          final t = tripsProvider.trips[i];
           return Card(
             child: ListTile(
               shape: RoundedRectangleBorder(
@@ -72,9 +62,8 @@ class _TripListScreenState extends State<TripListScreen> {
                             ),
                             TextButton(
                               onPressed: () async {
-                                await TripStorage.deleteTrip(t);
-                                Navigator.pop(c);
-                                _load();
+                                await tripsProvider.deleteTrip(t);
+                                if(c.mounted) Navigator.pop(c);
                               },
                               child: const Text('Delete'),
                             ),
