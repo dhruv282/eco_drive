@@ -11,6 +11,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_map_location_marker/flutter_map_location_marker.dart';
 import 'package:vector_math/vector_math.dart' show Matrix3, Vector3;
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 class DriveScreen extends StatefulWidget {
   final Trip? viewTrip;
@@ -81,6 +82,7 @@ class _DriveScreenState extends State<DriveScreen> {
 
   @override
   void dispose() {
+    WakelockPlus.disable();
     accelSub?.cancel();
     gpsSub?.cancel();
     accelerometerSub?.cancel();
@@ -306,6 +308,8 @@ class _DriveScreenState extends State<DriveScreen> {
   }
 
   Future<void> _startTrip() async {
+    await WakelockPlus.enable();
+
     setState(() {
       samples.clear();
       polylines.clear();
@@ -318,6 +322,8 @@ class _DriveScreenState extends State<DriveScreen> {
 
   Future<void> _stopTrip() async {
     recording = false;
+
+    await WakelockPlus.disable();
 
     final trip = Trip(
       id: tripStart!.millisecondsSinceEpoch.toString(),
