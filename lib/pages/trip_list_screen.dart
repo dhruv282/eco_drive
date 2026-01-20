@@ -48,53 +48,68 @@ class _TripListScreenState extends State<TripListScreen> {
               );
             },
           ),
-          body: ListView.builder(
-            itemCount: tripsProvider.trips.length,
-            itemBuilder: (c, i) {
-              final t = tripsProvider.trips[i];
-              return Card(
-                child: ListTile(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  title: Text('Trip ${t.start}'),
-                  subtitle: Text('${t.samples.length} samples'),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => DriveScreen(viewTrip: t),
+          body:
+              tripsProvider.trips.isEmpty
+                  ? Center(
+                    child: Text(
+                      'No trips recorded yet.\nStart a new trip!',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.headlineMedium?.copyWith(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withAlpha(125),
                       ),
-                    );
-                  },
-                  onLongPress:
-                      () => showDialog(
-                        context: context,
-                        builder:
-                            (c) => AlertDialog(
-                              title: const Text('Delete Trip?'),
-                              content: const Text(
-                                'Are you sure you want to delete this trip?',
+                    ),
+                  )
+                  : ListView.builder(
+                    itemCount: tripsProvider.trips.length,
+                    itemBuilder: (c, i) {
+                      final t = tripsProvider.trips[i];
+                      return Card(
+                        child: ListTile(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          title: Text('Trip ${t.start}'),
+                          subtitle: Text('${t.samples.length} samples'),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => DriveScreen(viewTrip: t),
                               ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(c),
-                                  child: const Text('Cancel'),
-                                ),
-                                TextButton(
-                                  onPressed: () async {
-                                    await tripsProvider.deleteTrip(t);
-                                    if (c.mounted) Navigator.pop(c);
-                                  },
-                                  child: const Text('Delete'),
-                                ),
-                              ],
-                            ),
-                      ),
-                ),
-              );
-            },
-          ),
+                            );
+                          },
+                          onLongPress:
+                              () => showDialog(
+                                context: context,
+                                builder:
+                                    (c) => AlertDialog(
+                                      title: const Text('Delete Trip?'),
+                                      content: const Text(
+                                        'Are you sure you want to delete this trip?',
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(c),
+                                          child: const Text('Cancel'),
+                                        ),
+                                        TextButton(
+                                          onPressed: () async {
+                                            await tripsProvider.deleteTrip(t);
+                                            if (c.mounted) Navigator.pop(c);
+                                          },
+                                          child: const Text('Delete'),
+                                        ),
+                                      ],
+                                    ),
+                              ),
+                        ),
+                      );
+                    },
+                  ),
         );
   }
 }
