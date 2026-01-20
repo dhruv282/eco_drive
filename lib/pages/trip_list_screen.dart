@@ -13,6 +13,23 @@ class TripListScreen extends StatefulWidget {
 
 class _TripListScreenState extends State<TripListScreen> {
   List<Trip> trips = [];
+  bool isLoading = true;
+
+  _initializeTrips(BuildContext context) async {
+    Provider.of<TripsProvider>(context, listen: false).loadTrips().whenComplete(
+      () => setState(() {
+        isLoading = false;
+      }),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeTrips(context);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +80,7 @@ class _TripListScreenState extends State<TripListScreen> {
                             TextButton(
                               onPressed: () async {
                                 await tripsProvider.deleteTrip(t);
-                                if(c.mounted) Navigator.pop(c);
+                                if (c.mounted) Navigator.pop(c);
                               },
                               child: const Text('Delete'),
                             ),
