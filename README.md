@@ -24,8 +24,8 @@ The goal of the project is to explore how far you can go with **phone-only telem
 
 <p align="center">
    <img src="https://github.com/user-attachments/assets/916952ab-8b1b-42b7-8732-432d0dfa6d1d" width="200">
-   <img src="https://github.com/user-attachments/assets/44889f55-4581-47aa-86c6-dcbfddaad678" width="200">
-   <img src="https://github.com/user-attachments/assets/bf301549-8149-4953-8ee2-1b0fe72cfb69" width="200">
+   <img src="https://github.com/user-attachments/assets/73358925-02a0-4954-8041-1d53ac55b1c5" width="200">
+   <img src="https://github.com/user-attachments/assets/bbc00888-33f2-4147-be23-c82001d85ebc" width="200">
 </p>
 
 ## 🧠 Sensor Fusion Overview
