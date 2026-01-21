@@ -1,6 +1,7 @@
 import 'package:eco_drive/data/trip_aggregates.dart';
 import 'package:eco_drive/pages/drive_screen.dart';
 import 'package:eco_drive/providers/trips_provider.dart';
+import 'package:eco_drive/utils/location_permission_service.dart';
 import 'package:eco_drive/widgets/summary_card.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -13,6 +14,7 @@ class TripListScreen extends StatefulWidget {
 }
 
 class _TripListScreenState extends State<TripListScreen> {
+  bool locationPermissionGranted = false;
   bool isLoading = true;
   double totalDistanceKm = 0;
   double avgSpeed = 0;
@@ -29,13 +31,36 @@ class _TripListScreenState extends State<TripListScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeTrips(context);
+    LocationPermissionService.ensureLocationPermission().then((granted) {
+      setState(() {
+        locationPermissionGranted = granted;
+      });
+      if (locationPermissionGranted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _initializeTrips(context);
+        });
+      } else {
+        setState(() {
+          isLoading = false;
+        });
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    var theme = Theme.of(context);
+    if (!locationPermissionGranted) {
+      return Center(
+        child: Text(
+          'Location permission not granted',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.headlineSmall?.copyWith(
+            color: theme.colorScheme.onSurface.withAlpha(125),
+          ),
+        ),
+      );
+    }
     final tripsProvider = Provider.of<TripsProvider>(context);
     final aggregates = TripAggregates.computeAggregates(tripsProvider.trips);
     return isLoading
