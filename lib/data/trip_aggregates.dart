@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:eco_drive/data/trip.dart';
 
 class TripAggregates {
@@ -36,8 +38,9 @@ class TripAggregates {
 
     double avgSpeed = count == 0 ? 0 : speedSum / count;
 
-    double ecoScore =
-        count == 0 ? 100 : (100 / (1 + emissionSum / count)).clamp(0, 100);
+    // Exponential decay for eco score
+    final avgEmission = count == 0 ? 0.0 : emissionSum / count;
+    final ecoScore = (100 * math.exp(-avgEmission / 1.5)).clamp(0.0, 100.0);
 
     return TripAggregates(
       totalDistanceMeters: distance,

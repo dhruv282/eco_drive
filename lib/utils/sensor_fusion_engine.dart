@@ -12,13 +12,16 @@ class SensorFusionEngine {
   final GpsService gps;
 
   static const double _yawAlpha = 0.98;
-  static const double gravityAlpha = 0.9;
+  static const double _gravityAlpha = 0.9;
+  static const double _jerkAlpha = 0.7;
 
-  Vector3 _gravity = Vector3.zero();
-  
+  Vector3 _gravity = Vector3(0, 0, -9.8); // Initialize to earth gravity
+
+  bool _yawInitialized = false;
   double _yaw = 0.0;
   double _lastAccelX = 0.0;
-  
+  double _filteredJerk = 0.0;
+
   DateTime? _lastTs;
 
   final _vehicleStateCtrl = StreamController<VehicleState>.broadcast();
@@ -32,12 +35,34 @@ class SensorFusionEngine {
     sensors.userAccel$.listen(_onUserAccel);
   }
 
+  void dispose() {
+    _vehicleStateCtrl.close();
+  }
+
   void _onAccel(AccelerometerEvent e) {
-    _gravity = Vector3(e.x, e.y, e.z).normalized();
+    final accel = Vector3(e.x, e.y, e.z);
+
+    // Low-pass filter to isolate gravity
+    _gravity = _gravity * _gravityAlpha + accel * (1.0 - _gravityAlpha);
+
+    // Normalize to maintain unit vector (gravity direction)
+    if (_gravity.length > 1e-6) {
+      _gravity = _gravity.normalized();
+    }
   }
 
   void _onGyro(GyroscopeEvent e) {
     final dt = _deltaT();
+    if (dt == null) return;
+
+    // Initialize from GPS on first valid reading
+    if (!_yawInitialized && gps.heading.abs() > 1e-6) {
+      _yaw = gps.heading;
+      _yawInitialized = true;
+      return; // Skip integration on first sample
+    }
+
+    // Integrate gyro
     _yaw += e.z * dt;
 
     // Gentle correction toward GPS heading
@@ -48,6 +73,7 @@ class SensorFusionEngine {
   void _onUserAccel(UserAccelerometerEvent e) {
     final now = DateTime.now();
     final dt = _deltaT(now);
+    if (dt == null || !_yawInitialized) return;
 
     // Linear acceleration in phone frame
     final phoneAccel = Vector3(e.x, e.y, e.z);
@@ -60,7 +86,9 @@ class SensorFusionEngine {
 
     final ax = vehicleAccel.x;
     final ay = vehicleAccel.y;
-    final jerk = (ax - _lastAccelX) / dt;
+
+    final rawJerk = (ax - _lastAccelX) / dt;
+    _filteredJerk = _filteredJerk * _jerkAlpha + rawJerk * (1 - _jerkAlpha);
 
     _lastAccelX = ax;
 
@@ -69,16 +97,19 @@ class SensorFusionEngine {
         speed: gps.speed, // injected from GPS service
         accelLong: ax,
         accelLat: ay,
-        jerk: jerk,
+        jerk: _filteredJerk,
         dt: dt,
       ),
     );
   }
 
-  double _deltaT([DateTime? now]) {
+  double? _deltaT([DateTime? now]) {
     final t = now ?? DateTime.now();
-    final dt =
-        _lastTs == null ? 0.02 : t.difference(_lastTs!).inMilliseconds / 1000.0;
+    if (_lastTs == null) {
+      _lastTs = t;
+      return null;
+    }
+    final dt = t.difference(_lastTs!).inMilliseconds / 1000.0;
     _lastTs = t;
     return dt;
   }
