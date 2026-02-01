@@ -83,8 +83,9 @@ class TripRecorder {
     );
   }
 
-  double _evaluateAccelerationMagnitude(VehicleState s) {
-    return sqrt(s.accelLong * s.accelLong + s.accelLat * s.accelLat);
+  double _evaluateSignedAcceleration(VehicleState s) {
+    final magnitude = sqrt(s.accelLong * s.accelLong + s.accelLat * s.accelLat);
+    return s.accelLong >= 0 ? magnitude : -magnitude;
   }
 
   void _onVehicleState(VehicleState s) {
@@ -99,7 +100,7 @@ class TripRecorder {
     _lastEmitTime = now;
 
     final emission = emissionModel.computeEmission(s);
-    final accel = _evaluateAccelerationMagnitude(s);
+    final accel = _evaluateSignedAcceleration(s);
     final sample = DriveSample(
       timestamp: now,
       lat: currentPosition!.latitude,
