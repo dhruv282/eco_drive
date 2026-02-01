@@ -1,3 +1,4 @@
+import 'package:eco_drive/widgets/eco_score_progress_bar.dart';
 import 'package:flutter/material.dart';
 
 class SummaryCard extends StatelessWidget {
@@ -37,27 +38,7 @@ class SummaryCard extends StatelessWidget {
               'Avg Speed: ${(avgSpeedMps * 2.23694).toStringAsFixed(1)} mph',
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                const Text('🌱 Eco Score'),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: LinearProgressIndicator(
-                    value: ecoScore / 100,
-                    backgroundColor: Colors.grey.shade300,
-                    valueColor: AlwaysStoppedAnimation(
-                      ecoScore > 70
-                          ? Colors.green
-                          : ecoScore > 40
-                          ? Colors.orange
-                          : Colors.red,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(ecoScore.toStringAsFixed(0)),
-              ],
-            ),
+            EcoScoreProgressBar(ecoScore: ecoScore),
           ],
         ),
       ),
