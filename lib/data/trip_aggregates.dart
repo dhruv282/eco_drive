@@ -13,6 +13,20 @@ class TripAggregates {
     required this.ecoScore,
   });
 
+  static double computeTripEcoScore(Trip trip) {
+    if (trip.samples.isEmpty) return 100.0;
+
+    double emissionSum = 0;
+    for (var s in trip.samples) {
+      emissionSum += s.emission;
+    }
+    final avgEmission = emissionSum / trip.samples.length;
+
+    // Exponential decay for eco score
+    final ecoScore = (100 * math.exp(-avgEmission / 1.5)).clamp(0.0, 100.0);
+    return ecoScore;
+  }
+
   static TripAggregates computeAggregates(List<Trip> trips) {
     if (trips.isEmpty) {
       return const TripAggregates(

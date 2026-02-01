@@ -1,3 +1,6 @@
+import 'package:eco_drive/data/trip.dart';
+import 'package:eco_drive/data/trip_aggregates.dart';
+import 'package:eco_drive/widgets/eco_score_progress_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:eco_drive/widgets/metric.dart';
@@ -10,7 +13,7 @@ class TelemetryCard extends StatelessWidget {
   final double avgSpeedMps;
   final LatLng? position;
   final bool recording;
-  final bool isViewTrip;
+  final Trip? viewTrip;
 
   const TelemetryCard({
     super.key,
@@ -21,7 +24,7 @@ class TelemetryCard extends StatelessWidget {
     required this.avgSpeedMps,
     required this.position,
     required this.recording,
-    required this.isViewTrip,
+    required this.viewTrip,
   });
 
   Color accelColor(double a) {
@@ -40,6 +43,7 @@ class TelemetryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isViewTrip = viewTrip != null;
     final speedMph = speedMps * 2.23694;
 
     return Card(
@@ -80,7 +84,7 @@ class TelemetryCard extends StatelessWidget {
               children: [
                 Metric(
                   label: 'DIST',
-                    value: (totalDistanceMeters * 0.000621371).toStringAsFixed(2),
+                  value: (totalDistanceMeters * 0.000621371).toStringAsFixed(2),
                   unit: 'miles',
                 ),
                 Metric(
@@ -105,6 +109,12 @@ class TelemetryCard extends StatelessWidget {
                   color: recording ? Colors.red : Colors.grey,
                   fontWeight: FontWeight.bold,
                 ),
+              ),
+            ],
+            if (isViewTrip) ...[
+              const SizedBox(height: 12),
+              EcoScoreProgressBar(
+                ecoScore: TripAggregates.computeTripEcoScore(viewTrip!),
               ),
             ],
           ],

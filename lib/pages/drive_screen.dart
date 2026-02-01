@@ -337,7 +337,7 @@ class _DriveScreenState extends State<DriveScreen> {
                 avgSpeedMps: avgSpeedMps,
                 position: currentPosition,
                 recording: recording,
-                isViewTrip: widget.viewTrip != null,
+                viewTrip: widget.viewTrip,
               ),
             ),
           ],
