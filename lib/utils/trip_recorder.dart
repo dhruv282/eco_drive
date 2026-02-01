@@ -68,6 +68,7 @@ class TripRecorder {
   void dispose() {
     sensors.dispose();
     gps.dispose();
+    fusion.dispose();
     _sampleController.close();
   }
 
